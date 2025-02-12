@@ -1,22 +1,24 @@
 # Budget-Coder
 
-## Context-Aware Code Editing Mode
+Budget-Coder is an intelligent code analysis and editing pipeline that provides enterprise-grade code understanding and modification capabilities at a fraction of the cost. By leveraging the power of Deepseek Coder (a cost-effective alternative to GPT-4) combined with Claude Sonnet's precise editing, it delivers high-quality code analysis and modifications while maintaining comprehensive project context.
 
-## Overview
+## Key Features
 
-This mode extends Roo's capabilities with intelligent, context-aware code editing through a specialized pipeline that combines Deepseek's analytical capabilities with Claude's precise editing. The mode maintains comprehensive project context while managing code edits through a multi-step process.
+### 1. Cost-Effective Intelligence
+- Uses Deepseek Coder for deep code analysis (significantly cheaper than GPT-4)
+- Leverages Claude Sonnet for precise edits (better price-performance ratio)
+- Optimizes token usage through smart context management
+- Maintains high quality while reducing API costs
 
-## Core Capabilities
+### 2. Smart Context Management
+- Automatically extracts and manages relevant code context (50k-100k tokens)
+- Preserves project knowledge and relationships
+- Tracks dependencies and impact analysis
+- Maintains comprehensive audit trail
 
-### 1. Context Management
-- Continuously tracks and updates project context
-- Maintains documentation and memory state
-- Automatically extracts relevant code segments (50k-100k tokens)
-- Preserves relationships between dependent files
-
-### 2. Intelligent Code Pipeline
-- **Analysis Phase (Deepseek R1)**
-  - Deep code structure analysis
+### 3. Intelligent Pipeline
+- **Analysis Phase (Deepseek Coder)**
+  - Deep code structure understanding
   - Pattern recognition
   - Improvement suggestions
   - Dependency analysis
@@ -27,171 +29,156 @@ This mode extends Roo's capabilities with intelligent, context-aware code editin
   - Documentation updates
   - Test considerations
 
-### 3. Audit System
-- Comprehensive operation logging
-- Change tracking
-- Decision documentation
-- Error recovery
+### 4. Enterprise Features
+- Comprehensive audit logging
+- Error recovery mechanisms
+- Rate limit management
+- Token usage optimization
 
-## Usage Patterns
+## Getting Started
+
+### Prerequisites
+- Node.js 18 or higher
+- OpenRouter API key (for Deepseek and Claude access)
+- MCP-compatible environment
+
+### Installation
+1. Clone the repository:
+```bash
+git clone https://github.com/SimoKiihamaki/Budget-Coder.git
+cd Budget-Coder
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Configure environment:
+```bash
+cp .env.example .env
+# Edit .env with your OpenRouter API key
+```
+
+4. Build the project:
+```bash
+npm run build
+```
+
+### MCP Integration
+Add to your MCP settings (typically in cline_mcp_settings.json):
+```json
+{
+  "mcpServers": {
+    "code-pipeline": {
+      "command": "node",
+      "args": ["path/to/Budget-Coder/build/index.js"],
+      "env": {
+        "OPENROUTER_API_KEY": "your-api-key"
+      },
+      "disabled": false,
+      "autoApprove": [],
+      "alwaysAllow": []
+    }
+  }
+}
+```
+
+## Usage
 
 ### 1. Code Analysis
+```typescript
+await use_mcp_tool({
+  server_name: "code-pipeline",
+  tool_name: "analyze_code",
+  arguments: {
+    context: "your code here",
+    task: "describe what to analyze"
+  }
+});
 ```
-Analyze this code for potential improvements:
-[paste code or provide file paths]
-```
-The mode will:
-1. Extract relevant context
-2. Send to Deepseek for analysis
-3. Present findings and suggestions
 
 ### 2. Code Modifications
-```
-Refactor this code to [description]:
-[paste code or provide file paths]
-```
-The mode will:
-1. Analyze current implementation
-2. Generate improvement plan
-3. Execute precise edits
-4. Update documentation
-
-### 3. Context Updates
-```
-Update context for [file/component]:
-[provide new information]
-```
-The mode will:
-1. Integrate new information
-2. Update documentation
-3. Adjust related components
-
-## Best Practices
-
-1. **Context Scope**
-   - Provide file paths for related code
-   - Mention relevant dependencies
-   - Describe the intended changes
-
-2. **Task Description**
-   - Be specific about desired outcomes
-   - Mention performance/maintainability requirements
-   - Indicate any constraints
-
-3. **Documentation**
-   - Let the mode update docs automatically
-   - Review generated documentation
-   - Verify context updates
-
-## Working with the Pipeline
-
-### Analysis Phase
-The mode uses Deepseek R1 to:
-- Understand code structure
-- Identify patterns
-- Suggest improvements
-- Consider edge cases
-
-### Edit Phase
-Claude Sonnet then:
-- Implements suggested changes
-- Maintains code style
-- Updates documentation
-- Ensures consistency
-
-## Error Handling
-
-The mode automatically:
-- Tracks operation status
-- Maintains audit logs
-- Recovers from failures
-- Preserves context on errors
-
-## Examples
-
-### 1. Code Analysis
-```
-Analyze the authentication flow in src/auth/*.ts for security improvements
+```typescript
+await use_mcp_tool({
+  server_name: "code-pipeline",
+  tool_name: "generate_edits",
+  arguments: {
+    context: "original code",
+    analysis: "analysis from previous step"
+  }
+});
 ```
 
-### 2. Refactoring
+## Cost Benefits
+
+### Token Optimization
+- Smart context extraction reduces token usage
+- Efficient model selection based on task
+- Caching and reuse of analysis results
+- Automatic token limit management
+
+### Price Comparison
+| Model | Cost per 1M tokens | Our Usage |
+|-------|-------------------|------------|
+| GPT-4 | $30.00           | N/A        |
+| Deepseek | $0.50         | Analysis   |
+| Claude Sonnet | $3.00    | Editing    |
+
+Average cost reduction: 80-90% compared to GPT-4 based solutions
+
+## Features
+
+### Intelligent Analysis
+- Deep code understanding
+- Pattern recognition
+- Security analysis
+- Performance optimization
+- Best practice enforcement
+
+### Precise Editing
+- Context-aware modifications
+- Style preservation
+- Documentation updates
+- Test considerations
+- Error prevention
+
+### Enterprise Ready
+- Comprehensive logging
+- Audit trails
+- Error recovery
+- Rate limiting
+- Token optimization
+
+## Architecture
+
+```mermaid
+graph TD
+    Input[Code Input] --> Context[Context Manager]
+    Context --> Analysis[Deepseek Analysis]
+    Analysis --> Validation[Context Validation]
+    Validation --> Edits[Claude Editing]
+    Edits --> Audit[Audit Logger]
+    Audit --> Output[Final Code]
 ```
-Refactor the data fetching logic in src/api/client.ts to use the new API endpoints
-```
 
-### 3. Feature Addition
-```
-Add input validation to the user registration form in src/components/Register.tsx
-```
+## Contributing
 
-## Memory Management
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-The mode maintains:
-1. **Active Context**
-   - Current file contents
-   - Related dependencies
-   - Recent changes
-   - Pending updates
+## License
 
-2. **Project Memory**
-   - Architecture decisions
-   - Code patterns
-   - Known issues
-   - Documentation state
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-3. **Audit Trail**
-   - Operation history
-   - Change justifications
-   - Error records
-   - Context updates
+## Acknowledgments
 
-## Integration with Other Modes
+- Deepseek Coder team for their excellent model
+- Anthropic for Claude Sonnet
+- OpenRouter for API access
+- MCP community for the framework
 
-This mode works seamlessly with:
-- **Architect Mode**: For high-level design decisions
-- **Ask Mode**: For clarifying technical questions
-- **Standard Code Mode**: For simple edits
-
-## Limitations
-
-1. **Token Limits**
-   - Maximum context: ~100k tokens
-   - May need to chunk large codebases
-   - Prioritizes relevant context
-
-2. **API Constraints**
-   - Subject to rate limits
-   - May have latency
-   - Requires valid API keys
-
-3. **Context Scope**
-   - Limited to provided files
-   - May miss external dependencies
-   - Requires explicit updates
-
-## Tips for Optimal Use
-
-1. **Provide Context**
-   - Include relevant file paths
-   - Mention related components
-   - Describe dependencies
-
-2. **Clear Objectives**
-   - Specify desired outcomes
-   - Mention constraints
-   - Indicate priorities
-
-3. **Review Changes**
-   - Check generated docs
-   - Verify context updates
-   - Test modifications
-
-## Maintenance
-
-The mode automatically:
-1. Updates documentation
-2. Maintains audit logs
-3. Manages context
-4. Handles errors
-
-Remember: This mode excels at understanding and modifying code while maintaining project context. Use it for complex changes that require deep understanding of the codebase.
+Remember: Budget-Coder provides enterprise-grade code analysis and editing capabilities while significantly reducing costs through smart model selection and efficient token management.
