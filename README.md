@@ -1,4 +1,6 @@
-# Context-Aware Code Editing Mode
+# Budget-Coder
+
+## Context-Aware Code Editing Mode
 
 ## Overview
 
