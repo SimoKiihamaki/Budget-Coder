@@ -1,11 +1,11 @@
 # Budget-Coder
 
-Budget-Coder is an intelligent code analysis and editing pipeline that provides enterprise-grade code understanding and modification capabilities at a fraction of the cost. By leveraging the power of Deepseek Coder (a cost-effective alternative to GPT-4) combined with Claude Sonnet's precise editing, it delivers high-quality code analysis and modifications while maintaining comprehensive project context.
+Budget-Coder is an intelligent code analysis and editing pipeline that provides enterprise-grade code understanding and modification capabilities at a fraction of the cost. By leveraging the power of Deepseek R1 combined with Claude Sonnet's precise editing, it delivers high-quality code analysis and modifications while maintaining comprehensive project context.
 
 ## Key Features
 
 ### 1. Cost-Effective Intelligence
-- Uses Deepseek Coder for deep code analysis (significantly cheaper than GPT-4)
+- Uses Deepseek R1 for deep code analysis (significantly cheaper than GPT-4)
 - Leverages Claude Sonnet for precise edits (better price-performance ratio)
 - Optimizes token usage through smart context management
 - Maintains high quality while reducing API costs
@@ -20,7 +20,7 @@ Budget-Coder is an intelligent code analysis and editing pipeline that provides 
 - Maintains comprehensive audit trail
 
 ### 3. Intelligent Pipeline
-- **Analysis Phase (Deepseek Coder)**
+- **Analysis Phase (Deepseek R1)**
   - Deep code structure understanding
   - Pattern recognition
   - Improvement suggestions
@@ -135,14 +135,6 @@ function add(a: number, b: number): number {
 - Caching and reuse of analysis results
 - Automatic token limit management
 
-### Price Comparison
-| Model | Cost per 1M tokens | Our Usage |
-|-------|-------------------|------------|
-| GPT-4 | $30.00           | N/A        |
-| Deepseek | $0.50         | Analysis   |
-| Claude Sonnet | $3.00    | Editing    |
-
-Average cost reduction: 80-90% compared to GPT-4 based solutions
 
 ## Features
 
@@ -193,7 +185,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Deepseek Coder team for their excellent model
+- Deepseek team for their excellent model
 - Anthropic for Claude Sonnet
 - OpenRouter for API access
 - MCP community for the framework
