@@ -11,9 +11,12 @@ Budget-Coder is an intelligent code analysis and editing pipeline that provides 
 - Maintains high quality while reducing API costs
 
 ### 2. Smart Context Management
-- Automatically extracts and manages relevant code context (50k-100k tokens)
+- Supports comprehensive context including:
+  - Code to be analyzed/modified
+  - Conversation history for better task understanding
+  - Related project files for broader context
+  - Project configuration and settings
 - Preserves project knowledge and relationships
-- Tracks dependencies and impact analysis
 - Maintains comprehensive audit trail
 
 ### 3. Intelligent Pipeline
@@ -86,28 +89,42 @@ Add to your MCP settings (typically in cline_mcp_settings.json):
 
 ## Usage
 
-### 1. Code Analysis
+### Code Analysis and Editing
 ```typescript
 await use_mcp_tool({
   server_name: "code-pipeline",
-  tool_name: "analyze_code",
+  tool_name: "analyze_and_edit",
   arguments: {
-    context: "your code here",
-    task: "describe what to analyze"
+    // Required: Code to analyze/modify
+    context: "function add(a, b) { return a + b; }",
+    
+    // Optional: Specific task description
+    task: "Add TypeScript type annotations",
+    
+    // Optional: Previous conversation for context
+    conversationHistory: "User requested to add type annotations...",
+    
+    // Optional: Related project files for context
+    files: [
+      {
+        path: "tsconfig.json",
+        content: "{ \"compilerOptions\": { ... } }"
+      }
+    ]
   }
 });
 ```
 
-### 2. Code Modifications
+The tool will analyze the code considering all provided context and return suggested improvements. For example:
+
 ```typescript
-await use_mcp_tool({
-  server_name: "code-pipeline",
-  tool_name: "generate_edits",
-  arguments: {
-    context: "original code",
-    analysis: "analysis from previous step"
-  }
-});
+// Input
+function add(a, b) { return a + b; }
+
+// Output with type annotations
+function add(a: number, b: number): number {
+  return a + b;
+}
 ```
 
 ## Cost Benefits

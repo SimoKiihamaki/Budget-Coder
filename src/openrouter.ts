@@ -1,130 +1,93 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-
-interface ModelResponse {
-  choices: Array<{
-    message: {
-      content: string;
-      role: string;
-    };
-  }>;
-}
-
-interface OpenRouterErrorResponse {
-  error: string;
-}
-
-interface RateLimits {
-  remaining: number;
-  reset: number;
-}
+import { OpenAI } from 'openai';
 
 export class OpenRouterClient {
-  private client: AxiosInstance;
-  private rateLimits: RateLimits = { remaining: 50, reset: Date.now() + 3600000 };
+  private client: OpenAI;
 
   constructor(apiKey: string) {
-    this.client = axios.create({
+    this.client = new OpenAI({
+      apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
+      defaultHeaders: {
         'HTTP-Referer': 'https://github.com/modelcontextprotocol/mcp',
         'X-Title': 'MCP Code Pipeline'
       }
     });
-
-    // Add response interceptor for rate limit tracking
-    this.client.interceptors.response.use((response: AxiosResponse) => {
-      const remaining = parseInt(response.headers['x-ratelimit-remaining'] || '50');
-      const reset = parseInt(response.headers['x-ratelimit-reset'] || '3600');
-      
-      this.rateLimits = {
-        remaining,
-        reset: Date.now() + reset * 1000
-      };
-      
-      return response;
-    });
   }
 
-  private async checkRateLimit(): Promise<void> {
-    if (this.rateLimits.remaining <= 0) {
-      const waitTime = this.rateLimits.reset - Date.now();
-      if (waitTime > 0) {
-        throw new Error(`Rate limit exceeded. Reset in ${Math.ceil(waitTime / 1000)} seconds`);
-      }
-    }
-  }
-
-  async deepseekAnalysis(context: string): Promise<string> {
-    await this.checkRateLimit();
-    
+  async analyzeAndEdit(context: string, task?: string): Promise<string> {
     try {
-      const response = await this.client.post<ModelResponse>('/chat/completions', {
-        model: 'deepseek-ai/deepseek-coder-33b-instruct',
+      // Get analysis from Deepseek
+      console.debug('Requesting Deepseek analysis...');
+      const deepseekPrompt = `You are an expert data analyst and software developer, fluent in multiple programming languages and frameworks. You excel at understanding complex codebases and making precise, thoughtful improvements.
+
+Project Context:
+${context}
+
+Task: ${task || 'Analyze and improve the code'}
+
+Analyze the code and provide detailed insights about potential improvements, focusing on:
+1. Code structure and organization
+2. Performance optimization
+3. Error handling
+4. Best practices
+5. Type safety and validation
+
+Provide your analysis in a clear, professional manner.`;
+
+      const analysis = await this.client.chat.completions.create({
+        model: 'deepseek/deepseek-r1:free',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an expert code analyst. Analyze the provided code context and generate detailed reasoning about potential changes, improvements, and considerations.'
-          },
-          {
-            role: 'user',
-            content: context
-          }
+          { role: 'system', content: deepseekPrompt },
+          { role: 'user', content: context }
         ],
-        temperature: 0.3,
-        max_tokens: 2000
+        temperature: 0.7
       });
 
-      return response.data.choices[0].message.content;
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        if (axios.isAxiosError(error)) {
-          const axiosError = error as AxiosError<OpenRouterErrorResponse>;
-          throw new Error(`Deepseek analysis failed: ${axiosError.response?.data?.error || axiosError.message}`);
-        }
-        throw new Error(`Deepseek analysis failed: ${error.message}`);
+      const deepseekResponse = analysis.choices[0]?.message?.content;
+      if (!deepseekResponse) {
+        throw new Error('No analysis received from Deepseek');
       }
-      throw new Error('Deepseek analysis failed: Unknown error occurred');
-    }
-  }
 
-  async claudeEdit(context: string, analysis: string): Promise<string> {
-    await this.checkRateLimit();
-    
-    try {
-      const response = await this.client.post<ModelResponse>('/chat/completions', {
-        model: 'anthropic/claude-2.1-sonnet',
+      console.debug('Deepseek analysis obtained');
+
+      // Get edits from Claude
+      console.debug('Requesting Claude edits...');
+      const claudePrompt = `You are an expert software developer with deep knowledge of best practices and design patterns. Review the following code and analysis to make precise, thoughtful improvements.
+
+Project Context:
+${context}
+
+Previous Analysis:
+${deepseekResponse}
+
+Task: ${task || 'Review and improve the code'}
+
+Based on the analysis, suggest specific code improvements that will:
+1. Enhance code quality and maintainability
+2. Improve performance and efficiency
+3. Strengthen error handling and type safety
+4. Follow industry best practices
+
+Provide your suggested improvements in a clear, professional manner.`;
+
+      const edits = await this.client.chat.completions.create({
+        model: 'anthropic/claude-3.5-sonnet',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an expert code editor. Based on the provided context and analysis, generate precise code modifications that implement the suggested changes.'
-          },
-          {
-            role: 'user',
-            content: `Context:\n${context}\n\nAnalysis:\n${analysis}\n\nPlease provide specific code changes to implement the suggested improvements.`
-          }
+          { role: 'system', content: claudePrompt },
+          { role: 'user', content: context }
         ],
-        temperature: 0.2,
-        max_tokens: 4000
+        temperature: 0.7
       });
 
-      return response.data.choices[0].message.content;
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        if (axios.isAxiosError(error)) {
-          const axiosError = error as AxiosError<OpenRouterErrorResponse>;
-          throw new Error(`Claude edit failed: ${axiosError.response?.data?.error || axiosError.message}`);
-        }
-        throw new Error(`Claude edit failed: ${error.message}`);
+      const claudeResponse = edits.choices[0]?.message?.content;
+      if (!claudeResponse) {
+        throw new Error('No edits received from Claude');
       }
-      throw new Error('Claude edit failed: Unknown error occurred');
-    }
-  }
 
-  getRateLimitInfo(): { remaining: number; resetIn: number } {
-    return {
-      remaining: this.rateLimits.remaining,
-      resetIn: Math.max(0, Math.ceil((this.rateLimits.reset - Date.now()) / 1000))
-    };
+      return claudeResponse;
+    } catch (error) {
+      console.error('Analysis and edit failed:', error);
+      throw new Error(`Analysis and edit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

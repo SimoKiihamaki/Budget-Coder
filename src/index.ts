@@ -24,32 +24,58 @@ if (!OPENROUTER_API_KEY) {
 interface AnalysisRequest {
   context: string;
   task?: string;
+  conversationHistory?: string;
+  files?: Array<{
+    path: string;
+    content: string;
+  }>;
 }
 
-interface EditRequest {
-  context: string;
-  analysis: string;
+function parseArguments(args: unknown): Record<string, unknown> {
+  if (typeof args === 'string') {
+    try {
+      return JSON.parse(args);
+    } catch (error) {
+      console.error('Failed to parse JSON string:', error);
+      throw new McpError(ErrorCode.InvalidParams, 'Invalid JSON string in arguments');
+    }
+  }
+  
+  if (typeof args === 'object' && args !== null) {
+    return args as Record<string, unknown>;
+  }
+  
+  console.error('Invalid arguments type:', typeof args);
+  throw new McpError(ErrorCode.InvalidParams, 'Arguments must be a JSON object or string');
 }
 
-function isAnalysisRequest(obj: unknown): obj is AnalysisRequest {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'context' in obj &&
-    typeof (obj as any).context === 'string' &&
-    (!(obj as any).task || typeof (obj as any).task === 'string')
-  );
-}
+function isAnalysisRequest(args: unknown): args is AnalysisRequest {
+  console.error('Validating analysis request, raw args:', args);
+  
+  try {
+    const parsed = parseArguments(args);
+    console.error('Parsed arguments:', parsed);
 
-function isEditRequest(obj: unknown): obj is EditRequest {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'context' in obj &&
-    'analysis' in obj &&
-    typeof (obj as any).context === 'string' &&
-    typeof (obj as any).analysis === 'string'
-  );
+    if (!('context' in parsed)) {
+      throw new McpError(ErrorCode.InvalidParams, 'Missing required field: context');
+    }
+
+    if (typeof parsed.context !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, 'Field "context" must be a string');
+    }
+
+    if ('task' in parsed && typeof parsed.task !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, 'Field "task" must be a string when provided');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Analysis request validation failed:', error);
+    if (error instanceof McpError) {
+      throw error;
+    }
+    throw new McpError(ErrorCode.InvalidParams, 'Invalid analysis request format');
+  }
 }
 
 class CodePipelineServer {
@@ -78,7 +104,14 @@ class CodePipelineServer {
     this.setupToolHandlers();
     
     // Error handling
-    this.server.onerror = (error) => console.error('[MCP Error]', error);
+    this.server.onerror = (error) => {
+      console.error('[MCP Error]', error);
+      if (error instanceof McpError) {
+        throw error;
+      }
+      throw new McpError(ErrorCode.InternalError, error.message || 'Unknown error occurred');
+    };
+
     process.on('SIGINT', async () => {
       await this.server.close();
       process.exit(0);
@@ -163,8 +196,8 @@ class CodePipelineServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
-          name: 'analyze_code',
-          description: 'Analyze code context using Deepseek model',
+          name: 'analyze_and_edit',
+          description: 'Analyze code context and generate edits using AI models',
           inputSchema: {
             type: 'object',
             properties: {
@@ -176,26 +209,30 @@ class CodePipelineServer {
                 type: 'string',
                 description: 'Optional task description',
               },
+              conversationHistory: {
+                type: 'string',
+                description: 'Optional conversation history for context',
+              },
+              files: {
+                type: 'array',
+                description: 'Optional related files for context',
+                items: {
+                  type: 'object',
+                  properties: {
+                    path: {
+                      type: 'string',
+                      description: 'File path',
+                    },
+                    content: {
+                      type: 'string',
+                      description: 'File content',
+                    },
+                  },
+                  required: ['path', 'content'],
+                },
+              },
             },
             required: ['context'],
-          },
-        },
-        {
-          name: 'generate_edits',
-          description: 'Generate code edits using Claude model',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              context: {
-                type: 'string',
-                description: 'Original code context',
-              },
-              analysis: {
-                type: 'string',
-                description: 'Analysis from Deepseek',
-              },
-            },
-            required: ['context', 'analysis'],
           },
         },
       ],
@@ -205,60 +242,85 @@ class CodePipelineServer {
     this.server.setRequestHandler(
       CallToolRequestSchema,
       async (request) => {
+        console.error('Received tool request:', JSON.stringify(request, null, 2));
+        
         const { name, arguments: args } = request.params;
 
         if (!args) {
+          console.error('No arguments provided');
           throw new McpError(
             ErrorCode.InvalidParams,
             'Tool arguments are required'
           );
         }
 
-        switch (name) {
-          case 'analyze_code': {
-            if (!isAnalysisRequest(args)) {
-              throw new McpError(
-                ErrorCode.InvalidParams,
-                'Invalid analysis request parameters'
-              );
+        try {
+          switch (name) {
+            case 'analyze_and_edit': {
+              if (!isAnalysisRequest(args)) {
+                throw new McpError(
+                  ErrorCode.InvalidParams,
+                  'Invalid request parameters'
+                );
+              }
+              return this.handleAnalysisAndEdits(args);
             }
-            return this.handleAnalysis(args);
-          }
-          case 'generate_edits': {
-            if (!isEditRequest(args)) {
+            default:
               throw new McpError(
-                ErrorCode.InvalidParams,
-                'Invalid edit request parameters'
+                ErrorCode.MethodNotFound,
+                `Unknown tool: ${name}`
               );
-            }
-            return this.handleEdits(args);
           }
-          default:
-            throw new McpError(
-              ErrorCode.MethodNotFound,
-              `Unknown tool: ${name}`
-            );
+        } catch (error) {
+          console.error('Tool execution error:', error);
+          if (error instanceof McpError) {
+            throw error;
+          }
+          throw new McpError(
+            ErrorCode.InternalError,
+            `Error executing tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
         }
       }
     );
   }
 
-  private async handleAnalysis(request: AnalysisRequest) {
+  private async handleAnalysisAndEdits(request: AnalysisRequest) {
     const { context, task } = request;
     
     try {
-      // Validate and prepare context
+      // Validate context size
       const contextSize = ContextManager.validateContextSize(context);
       if (contextSize.truncated) {
         console.warn('Context was truncated to fit token limits');
       }
 
-      // Format context for model input
-      const files = ContextManager.extractFilesFromContext(context);
-      const formattedContext = ContextManager.formatContext(files, task);
+      // Format context for model input with additional information
+      let fullContext = '';
 
-      // Get analysis from Deepseek
-      const analysis = await this.openRouter.deepseekAnalysis(formattedContext);
+      // Add conversation history if available
+      if (request.conversationHistory) {
+        fullContext += 'Previous Conversation:\n';
+        fullContext += request.conversationHistory;
+        fullContext += '\n\n';
+      }
+
+      // Add relevant files if available
+      if (request.files) {
+        fullContext += 'Related Files:\n';
+        for (const file of request.files) {
+          fullContext += `File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\`\n\n`;
+        }
+      }
+
+      // Add the current code context
+      fullContext += 'Current Code:\n';
+      fullContext += context;
+
+      const formattedContext = ContextManager.formatContext(fullContext, task);
+
+      // Get analysis and edits
+      const result = await this.openRouter.analyzeAndEdit(formattedContext, task);
 
       // Log success
       await this.auditLogger.logContextAnalysis(
@@ -267,47 +329,9 @@ class CodePipelineServer {
         'success'
       );
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: analysis,
-          },
-        ],
-      };
-    } catch (error) {
-      // Log failure
-      await this.auditLogger.logContextAnalysis(
-        context,
-        ContextManager.estimateTokens(context),
-        'failure',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-
-      throw error;
-    }
-  }
-
-  private async handleEdits(request: EditRequest) {
-    const { context, analysis } = request;
-
-    try {
-      // Merge context with analysis
-      const mergedContext = ContextManager.mergeWithAnalysis(
-        context,
-        analysis
-      );
-
-      // Get edits from Claude
-      const edits = await this.openRouter.claudeEdit(
-        context,
-        analysis
-      );
-
-      // Log success
       await this.auditLogger.logModelResponse(
-        'claude',
-        edits.length,
+        'deepseek',
+        result.length,
         'success'
       );
 
@@ -315,14 +339,21 @@ class CodePipelineServer {
         content: [
           {
             type: 'text',
-            text: edits,
+            text: result,
           },
         ],
       };
     } catch (error) {
-      // Log failure
+      // Log failures
+      await this.auditLogger.logContextAnalysis(
+        context,
+        ContextManager.estimateTokens(context),
+        'failure',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+
       await this.auditLogger.logModelResponse(
-        'claude',
+        'deepseek',
         0,
         'failure',
         error instanceof Error ? error.message : 'Unknown error'
